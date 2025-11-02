@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Festival Acadêmico dos Novos — Instituto Alda Lara</title>
+  <meta name="description" content="Compre sua fita, veja fotos e participe do Festival Acadêmico dos Novos do Instituto Médio Politécnico Alda Lara.">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+  <style>
+    :root{--blue:#0b6fb8;--accent:#d4af37;--muted:#6b7280;}
+    body{margin:0;font-family:'Montserrat',sans-serif;background:linear-gradient(180deg,#fbfeff,#f2f9ff);color:#0b2540;}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:white;box-shadow:0 2px 6px rgba(0,0,0,0.05);}
+    .logo{font-weight:700;color:var(--blue);}
+    nav a{margin-right:12px;text-decoration:none;color:var(--blue);font-weight:600;}
+    button{cursor:pointer;border:none;border-radius:8px;padding:10px 16px;font-weight:600;}
+    .btn-primary{background:var(--accent);color:#072035;}
+    .btn-blue{background:var(--blue);color:white;}
+    .container{max-width:900px;margin:auto;padding:24px;}
+    section{margin-bottom:36px;}
+    footer{padding:24px;text-align:center;border-top:1px solid rgba(11,111,184,0.1);font-size:14px;color:var(--muted);}
+    .gallery{display:flex;flex-wrap:wrap;gap:8px;}
+    .gallery img{width:calc(33% - 8px);border-radius:8px;object-fit:cover;height:140px;}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:10;}
+    .modal-content{background:white;padding:24px;border-radius:10px;max-width:400px;width:90%;}
+    table{width:100%;border-collapse:collapse;margin-top:20px;}
+    th,td{border:1px solid #ddd;padding:8px;text-align:left;}
+    th{background:#0b6fb8;color:white;}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">🎓 Festival Acadêmico dos Novos — Alda Lara</div>
+    <nav>
+      <a href="#fitas">Fitas</a>
+      <a href="#galeria">Galeria</a>
+      <a href="#adminLogin" onclick="openAdminLogin()">Admin</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section id="fitas">
+      <h1>Compre sua fita 🎀</h1>
+      <p>Participe do Festival Acadêmico dos Novos! Escolha sua área e garanta sua fita personalizada.</p>
+      <form id="buyForm">
+        <input id="buyerName" placeholder="Seu nome completo" required style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin:8px 0;">
+        <select id="fitaType" required style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin:8px 0;">
+          <option value="normal">Área Normal — 2.500 Kz</option>
+          <option value="vip">Área VIP — 5.000 Kz</option>
+        </select>
+        <button class="btn-blue" type="submit">💳 Pagar com Multicaixa</button>
+      </form>
+    </section>
+
+    <section id="galeria">
+      <h2>Galeria dos Festivais Anteriores 📸</h2>
+      <div class="gallery" id="gallery"></div>
+    </section>
+
+    <footer>
+      Instituto Médio Politécnico Alda Lara — Festival Acadêmico dos Novos 2025<br>
+      <strong>Administrador:</strong> Edivaldo Mussunda — 📞 952096624 / 948635662
+    </footer>
+  </main>
+
+  <!-- Modal Recibo -->
+  <div id="receiptModal" class="modal">
+    <div class="modal-content">
+      <h2>✅ Pagamento Concluído</h2>
+      <p id="receiptInfo"></p>
+      <button class="btn-blue" onclick="gerarPDF()">📄 Baixar Recibo</button>
+      <button class="btn-primary" onclick="closeModal()">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Login do Administrador -->
+  <div id="adminModal" class="modal">
+    <div class="modal-content">
+      <h2>Login do Administrador</h2>
+      <input id="adminUser" placeholder="Usuário" style="width:100%;padding:10px;margin:6px 0;">
+      <input id="adminPass" placeholder="Senha" type="password" style="width:100%;padding:10px;margin:6px 0;">
+      <button class="btn-blue" onclick="loginAdmin()">Entrar</button>
+      <button class="btn-primary" onclick="closeAdminLogin()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Painel do Administrador -->
+  <div id="adminPanel" style="display:none;padding:24px;text-align:center;">
+    <h2>Painel do Administrador 📸</h2>
+
+    <h3>📤 Enviar nova foto</h3>
+    <input type="file" id="photoInput" accept="image/*">
+    <button class="btn-blue" onclick="uploadPhoto()">Enviar</button>
+    <p id="uploadStatus"></p>
+
+    <h3>💰 Registros de Compras</h3>
+    <button class="btn-primary" onclick="exportarVendas()">📄 Exportar PDF</button>
+    <table id="comprasTabela">
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Valor (Kz)</th><th>Data</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <h3 id="totalGeral">Total: 0 Kz</h3>
+    <button class="btn-blue" onclick="logoutAdmin()">Sair</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // 🔥 CONFIGURAÇÃO DO FIREBASE (troque pelas suas credenciais)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAExampleKeyExample",
+      authDomain: "festival-academico.firebaseapp.com",
+      projectId: "festival-academico",
+      storageBucket: "festival-academico.appspot.com",
+      messagingSenderId: "364829182731",
+      appId: "1:364829182731:web:fa3b3c9e6cbb1234567890"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+    const db = getFirestore(app);
+    const galleryDiv = document.getElementById('gallery');
+
+    // Carregar galeria
+    const listRef = ref(storage, 'galeria/');
+    listAll(listRef).then(res=>{
+      res.items.forEach(itemRef=>{
+        getDownloadURL(itemRef).then(url=>{
+          const img=document.createElement('img');
+          img.src=url;
+          galleryDiv.appendChild(img);
+        });
+      });
+    });
+
+    // COMPRA
+    const buyForm=document.getElementById('buyForm');
+    const receiptModal=document.getElementById('receiptModal');
+    const receiptInfo=document.getElementById('receiptInfo');
+    let compraAtual=null;
+
+    buyForm.addEventListener('submit',async(e)=>{
+      e.preventDefault();
+      const name=document.getElementById('buyerName').value.trim();
+      const type=document.getElementById('fitaType').value;
+      const valor=type==='vip'?5000:2500;
+      compraAtual={nome:name,tipo:type==='vip'?'Área VIP':'Área Normal',valor:valor,data:new Date().toLocaleString('pt-PT')};
+      await addDoc(collection(db,"compras"), compraAtual);
+      receiptInfo.innerHTML=`<strong>Nome:</strong> ${compraAtual.nome}<br>
+      <strong>Tipo:</strong> ${compraAtual.tipo}<br><strong>Valor:</strong> ${compraAtual.valor} Kz<br>
+      <strong>Data:</strong> ${compraAtual.data}<br><br>✅ Pagamento via Multicaixa realizado com sucesso!`;
+      receiptModal.style.display='flex';
+    });
+    window.closeModal=()=>receiptModal.style.display='none';
+    window.gerarPDF=()=>{
+      const { jsPDF }=window.jspdf;
+      const doc=new jsPDF();
+      doc.text("Recibo — Festival Acadêmico dos Novos",20,20);
+      doc.text(`Nome: ${compraAtual.nome}`,20,40);
+      doc.text(`Tipo: ${compraAtual.tipo}`,20,50);
+      doc.text(`Valor: ${compraAtual.valor} Kz`,20,60);
+      doc.text(`Data: ${compraAtual.data}`,20,70);
+      doc.text("Administrador: Edivaldo Mussunda",20,90);
+      doc.save(`Recibo_${compraAtual.nome}.pdf`);
+    };
+
+    // ADMIN LOGIN
+    const adminModal=document.getElementById('adminModal');
+    const adminPanel=document.getElementById('adminPanel');
+    const tabelaBody=document.querySelector("#comprasTabela tbody");
+    const totalGeral=document.getElementById("totalGeral");
+
+    window.openAdminLogin=()=>adminModal.style.display='flex';
+    window.closeAdminLogin=()=>adminModal.style.display='none';
+    window.loginAdmin=async()=>{
+      const user=document.getElementById('adminUser').value.trim();
+      const pass=document.getElementById('adminPass').value.trim();
+      if(user==="edivaldo" && pass==="12345"){
+        adminModal.style.display='none';
+        document.querySelector('main').style.display='none';
+        adminPanel.style.display='block';
+        carregarCompras();
+      }else alert("Usuário ou senha incorretos!");
+    };
+    window.logoutAdmin=()=>{
+      adminPanel.style.display='none';
+      document.querySelector('main').style.display='block';
+    };
+
+    // CARREGAR COMPRAS
+    async function carregarCompras(){
+      tabelaBody.innerHTML="";
+      let total=0;
+      const snap=await getDocs(collection(db,"compras"));
+      snap.forEach(docSnap=>{
+        const c=docSnap.data();
+        const row=document.createElement("tr");
+        row.innerHTML=`<td>${c.nome}</td><td>${c.tipo}</td><td>${c.valor}</td><td>${c.data}</td>`;
+        tabelaBody.appendChild(row);
+        total+=c.valor;
+      });
+      totalGeral.textContent="Total: "+total.toLocaleString()+" Kz";
+    }
+
+    // EXPORTAR PDF
+    window.exportarVendas=()=>{
+      const { jsPDF }=window.jspdf;
+      const doc=new jsPDF();
+      doc.text("Relatório de Vendas — Festival Acadêmico dos Novos",20,20);
+      let y=40,total=0;
+      tabelaBody.querySelectorAll("tr").forEach(tr=>{
+        const cols=tr.querySelectorAll("td");
+        const linha=`${cols[0].textContent} | ${cols[1].textContent} | ${cols[2].textContent} Kz | ${cols[3].textContent}`;
+        doc.text(linha,20,y);
+        y+=10;
+        total+=parseInt(cols[2].textContent);
+      });
+      doc.text(`\nTotal Arrecadado: ${total.toLocaleString()} Kz`,20,y+10);
+      doc.save("Relatorio_Vendas.pdf");
+    };
+
+    // UPLOAD FOTO
+    window.uploadPhoto=()=>{
+      const file=document.getElementById('photoInput').files[0];
+      if(!file) return alert("Selecione uma imagem!");
+      const storageRef=ref(storage,'galeria/'+file.name);
+      document.getElementById('uploadStatus').textContent='Enviando...';
+      uploadBytes(storageRef,file).then(()=>{
+        getDownloadURL(storageRef).then(url=>{
+          const img=document.createElement('img');
+          img.src=url;
+          galleryDiv.appendChild(img);
+          document.getElementById('uploadStatus').textContent='✅ Upload concluído!';
+        });
+      }).catch(()=>alert("Erro ao enviar imagem"));
+    };
+  </script>
+</body>
+</html>
